@@ -60,12 +60,12 @@ def __getMessageString(data):
     return messageString
 
 
-def __postMessage(queue, messageObject):
+def __sendMessage(queue, messageObject):
     result = __getDefaultResult()
 
     try:
         response = queue.send_message(**messageObject)
-        # print("awsSqsHelper::__postMessage() >> response: ", jsonHelper.getFormattedJson(response))
+        # print("awsSqsHelper::__sendMessage() >> response: ", jsonHelper.getFormattedJson(response))
 
         result[CONTANTS.RESPONSE.STATUS] = True
         responseMetaData = response.get(CONTANTS.SQS.RESPONSE.RESPONSE_META_DATA)
@@ -77,7 +77,7 @@ def __postMessage(queue, messageObject):
     except Exception as ex:
         result[CONTANTS.RESPONSE.EXCEPTION] = ex.__str__()
         result[CONTANTS.RESPONSE.STACK_TRACE] = traceback.format_exc()
-        # print("awsSqsHelper::__postMessage() >> Exception has occurred. Error: '{ex.__str__()}'")
+        # print("awsSqsHelper::__sendMessage() >> Exception has occurred. Error: '{ex.__str__()}'")
 
     return result
 
@@ -102,7 +102,7 @@ def getQueue(queueName):
     return result
 
 
-def postMessage(queueName, message, messageId=None):
+def sendMessage(queueName, message, messageId=None):
     result = __getDefaultResult()
 
     try:
@@ -114,9 +114,9 @@ def postMessage(queueName, message, messageId=None):
             if(messageId != None):
                 messageObject[CONTANTS.SQS.REQUEST.ID] = messageId 
             messageObject[CONTANTS.SQS.REQUEST.MESSAGE_BODY] = __getMessageString(message)
-            print("awsSqsHelper::postMessage() >> messageObject: ", messageObject)
+            print("awsSqsHelper::sendMessage() >> messageObject: ", messageObject)
 
-            result = __postMessage(resultGetQueue.get(CONTANTS.CONTEXT.QUEUE_OBJECT), messageObject)
+            result = __sendMessage(resultGetQueue.get(CONTANTS.CONTEXT.QUEUE_OBJECT), messageObject)
 
     except Exception as ex:
         result[CONTANTS.RESPONSE.EXCEPTION] = ex.__str__()
@@ -125,5 +125,5 @@ def postMessage(queueName, message, messageId=None):
     return result
 
 
-def postMessages(queueName, messages):
+def sendMessages(queueName, messages):
     pass

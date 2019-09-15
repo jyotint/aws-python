@@ -33,19 +33,19 @@ def main(args):
         queueName = arguments.qn
 
         # Test Scenario 01: None
-        # result = awsSqsHelper.postMessage(queueName, message=None)
+        # result = awsSqsHelper.sendMessage(queueName, message=None)
         
         # Test Scenario 02: Tuple type
-        # result = awsSqsHelper.postMessage(queueName, message=("a",2))
+        # result = awsSqsHelper.sendMessage(queueName, message=("a",2))
 
         # Test Scenario 03: String type
-        # result = awsSqsHelper.postMessage(queueName, message=f"Hi There (sent at {timeHelper.getUTCDateTimeString()})")
+        # result = awsSqsHelper.sendMessage(queueName, message=f"Hi There (sent at {timeHelper.getUTCDateTimeString()})")
 
         # Test Scenario 04: Dictionary type
         message = {}
         message["message"] = "Hello World!"
         message["SentAt"] = timeHelper.getUTCDateTimeString()
-        result = awsSqsHelper.postMessage(queueName, message)
+        result = awsSqsHelper.sendMessage(queueName, message)
 
         # print("main_sqs::main() >> result: ", result)
         print("main_sqs::main() >> result: ", jsonHelper.getFormattedJson(result))
