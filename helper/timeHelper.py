@@ -2,21 +2,20 @@
 # import os     # Used for Diagnostics
 import time
 import decimal
+import logging
 # Third party library imports
 # Local application imports
 from helper import constants
-
-
 # Module Constants
+# Module Level Variables
+logger = logging.getLogger(__name__)    # Logger
+timeLogDict = {}
 
 
 # Diagnostics logs
-# print(f"timeHelper::os.getcwd(): '{os.getcwd()}'")
-# print(f"timeHelper::ModuleName:  '{__name__}'")
-# print(f"timeHelper::dir():       {dir()}")
-
-
-timeLogDict = {}
+# logger.debug(f"timeHelper::os.getcwd(): '{os.getcwd()}'")
+# logger.debug(f"timeHelper::ModuleName:  '{__name__}'")
+# logger.debug(f"timeHelper::dir():       {dir()}")
 
 
 def convertDateTimeToString(datetime):
@@ -34,15 +33,28 @@ def getNow():
 
 def getUTCDateTime(timeSinceEpoch=None):
     """
-    Returns struct_time. If time is provided it will use it, otherwise it uses current time
+    Returns struct_time. If time is provided it will use it, otherwise it uses current UTC time
     """
     return time.gmtime(timeSinceEpoch if timeSinceEpoch != None else getNow())
 
+def getLocalDateTime(timeSinceEpoch=None):
+    """
+    Returns struct_time. If time is provided it will use it, otherwise it uses current time
+    """
+    return time.localtime(timeSinceEpoch if timeSinceEpoch != None else getNow())
+
+
 def getUTCDateTimeString(timeSinceEpoch=None):
+    """
+    Return string representation for provided UTC time
+    """
+    return convertDateTimeToString(getUTCDateTime(timeSinceEpoch))
+
+def getLocalDateTimeString(timeSinceEpoch=None):
     """
     Return string representation for provided time
     """
-    return convertDateTimeToString(getUTCDateTime(timeSinceEpoch))
+    return convertDateTimeToString(getLocalDateTime(timeSinceEpoch))
 
 
 def startTimeLog(category, startTime=None):

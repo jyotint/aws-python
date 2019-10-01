@@ -5,14 +5,18 @@ import json
 
 
 # Module Constants
-class CONTANTS:
+class CONSTANTS:
     FORMATTED_JSON_INDENT = 2
 
 
 
-def getFormattedJson(data, indentValue=CONTANTS.FORMATTED_JSON_INDENT):
-    return data if data == None else json.dumps(data, indent=indentValue)
+def convertJsonToObject(jsonString):
+    return jsonString if jsonString == None else json.loads(jsonString)
 
 
-def convertToString(data):
-    return data if data == None else json.dumps(data)
+def convertObjectToJson(obj):
+    return obj if obj == None else json.dumps(obj)
+
+
+def convertObjectToFormattedJson(obj, indentValue=CONSTANTS.FORMATTED_JSON_INDENT):
+    return obj if obj == None else json.dumps(obj, indent=indentValue)
