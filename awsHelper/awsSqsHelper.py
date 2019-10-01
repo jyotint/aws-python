@@ -137,7 +137,7 @@ def sendMessage(queueName, messageBody, messageAttributes=None, messageId=None):
                 newNessageAttributes = serializeDictToAttributeList(messageAttributes)
                 messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_ATTRIBUTE] = newNessageAttributes
             messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_BODY] = __getMessageJsonString(messageBody)
-            logger.info(f"awsSqsHelper::sendMessage() >> messageObject: {jsonHelper.convertObjectToFormattedJson(messageObject)}")
+            logger.debug(f"awsSqsHelper::sendMessage() >> messageObject: {jsonHelper.convertObjectToFormattedJson(messageObject)}")
 
             result = __sendMessage(resultGetQueue.get(CONSTANTS.CONTEXT.QUEUE), messageObject)
 
@@ -149,34 +149,6 @@ def sendMessage(queueName, messageBody, messageAttributes=None, messageId=None):
 
 def sendMessages(queueName, messages):
     pass 
-
-
-# def __receiveMessages(queue):
-#     result = apiMgmt.getDefaultResult()
-
-#     try:
-#         messages = queue.receive_messages(
-#             # AttributeNames='All',
-#             MaxNumberOfMessages=10,
-#             VisibilityTimeout=50,
-#             WaitTimeSeconds=20
-#         )
-#         # response = queue.receive_messages(
-#         #     AttributeNames=['All'],
-#         #     MessageAttributeNames=['All'],
-#         #     MaxNumberOfMessages=10,
-#         #     VisibilityTimeout=50,
-#         #     WaitTimeSeconds=20)
-#         # logger.debug(f"awsSqsHelper::__receiveMessages() >> response: {jsonHelper.convertObjectToFormattedJson(response)}")
-
-#         result[CONSTANTS.CONTEXT.MESSAGES] = messages
-#         apiMgmt.setResultStatusSuccess(result)
-
-#     except Exception as ex:
-#         apiMgmt.setResultFailed(result, exception=str(ex), stackTrace=traceback.format_exc())
-#         # logger.error(f"awsSqsHelper::__receiveMessages() >> Exception has occurred. Error: '{str(ex)}'")
-
-#     return result
 
 
 def receiveMessages(
