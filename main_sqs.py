@@ -3,6 +3,7 @@ import os     # Used for Diagnostics
 import sys
 sys.path.append("..")
 import time
+import uuid
 # import pprint
 import click
 import traceback
@@ -35,13 +36,33 @@ def main():
     pass
 
 
-@main.command("sm", help="Send messages")
-@click.argument("qn", type=click.STRING)    # help="SQS queue (name) to send message to")
+@main.command("rm", help="Receive messages")
+@click.argument("QueueName", type=click.STRING) # help="SQS queue (name) to recieve message from")
+@click.option("-c", "--count", type=click.INT, default=10, help="Number of times to loop for receiving messages. Defaults to 10.")
+@click.option("-w", "--wait", type=click.INT, default=5, help="Number of seconds to wait between each message. Simulate long message processing time. Defaults to 5.")
+def receiveMessages(queuename, count, wait):
+    receiveMessagesLL(queuename, count, wait)
+
+
+@main.command("sms", help="Send standard messages")
+@click.argument("QueueName", type=click.STRING)    # help="SQS queue (name) to send message to")
 @click.option("-c", "--count", type=click.INT, default=1, help="Number of mesages to send. Defaults to 1.")
 @click.option("-i", "--interval", type=click.INT, default=2, help="Duration between messages in Seconds. Defaults to 2.")
-def sendMessages(qn, count, interval):
-    queueName = qn
-    
+def sendStandardMessages(queuename, count, interval):
+    sendMessagesLL(queuename, count=count, interval=interval)
+
+
+@main.command("smf", help="Send FIFO messages")
+@click.argument("QueueName", type=click.STRING)    # help="SQS queue (name) to send message to")
+@click.option("-c", "--count", type=click.INT, default=1, help="Number of mesages to send. Defaults to 1.")
+@click.option("-i", "--interval", type=click.INT, default=2, help="Duration between messages in Seconds. Defaults to 2.")
+@click.option("-g", "--samegroup", type=click.BOOL, is_flag=True, default=False, help="Use same UUID for all messages in group. Applicable for FIFO Queue. Defaults to False.")
+@click.option("-d", "--samededup", type=click.BOOL, is_flag=True, default=False, help="Use same UUID for all messages for deduplication. Applicable for FIFO Queue. Defaults to False.")
+def sendFifoMessages(queuename, count, interval, samegroup, samededup):
+    sendMessagesLL(queuename, count=count, interval=interval, useSameGroupId=samegroup, useSameDeduplicationId=samededup)
+
+
+def sendMessagesLL(queueName, count=1, interval=2, useSameGroupId=False, useSameDeduplicationId=False):
     # Test Scenario 01: None
     # result = awsSqsHelper.sendMessage(queueName, message=None)
 
@@ -53,36 +74,83 @@ def sendMessages(qn, count, interval):
 
     # Test Scenario 04: Dictionary type
     successCount = 0
-    logger.info(f"main_sqs::sendMessages() >> Paramters >> count: {count}, interval: {interval}, queueName: '{queueName}'")
+    messageGroupId = None
+    messageDeduplicationId = None
+    logger.info(f"main_sqs::sendMessagesLL() >> Paramters >> queueName: '{queueName}', count: {count}, interval: {interval} second(s), useSameGroupId: {useSameGroupId}, useSameDeduplicationId: {useSameDeduplicationId}")
+
+    if(useSameGroupId):
+        messageGroupId = str(uuid.uuid4())
+    if(useSameDeduplicationId):
+        messageDeduplicationId = str(uuid.uuid4())
+
     for i in range(1, count+1):
         if(i != 1):
             time.sleep(interval)
 
-        logger.info(f"main_sqs::sendMessages() >>   Sending message #{i}...")
+        logger.info(f"main_sqs::sendMessagesLL() >>   Sending message #{i}...")
+
         currentDateTime = timeHelper.getUTCDateTimeString()
+        messageBody = getDefaultMessageBody(modifiedAt=currentDateTime)
+        messageAttributes = getMessageAttributes("HelloWorldType", currentDateTime=currentDateTime)
 
-        messageBody = {}
         messageBody["body"] = "Hello World!"
-        messageBody["modifiedBy"] = "Jyotindra"
-        messageBody["modifiedAt"] = currentDateTime
 
-        messageAttributes = {}
-        messageAttributes["messageVersion"] = "1.0"
-        messageAttributes["messageFormat"] = "application/json"
-        messageAttributes["messageType"] = "HelloWorldType"
-        messageAttributes["messageSentAt"] = currentDateTime
-        
-        result = awsSqsHelper.sendMessage(queueName, messageBody, messageAttributes=messageAttributes)
+        result = awsSqsHelper.sendMessage(
+            queueName, 
+            messageBody, 
+            messageAttributes=messageAttributes, 
+            messageGroupId=messageGroupId, 
+            messageDeduplicationId=messageDeduplicationId)
 
-        # logger.debug(f"main_sqs::sendMessages() >> result: {result}")
-        logger.debug(f"main_sqs::sendMessages() >> result: {jsonHelper.convertObjectToFormattedJson(result)}")
+        # logger.debug(f"main_sqs::sendMessagesLL() >> result: {result}")
+        logger.debug(f"main_sqs::sendMessagesLL() >> result: {jsonHelper.convertObjectToFormattedJson(result)}")
         if(apiMgmt.isResultFailure(result)):
             logger.error(result.get(apiMgmt.CONSTANTS.RESULT.STACK_TRACE))
         else:
             successCount += 1
-            logger.info(f"main_sqs::sendMessages() >>     Sent successfully.")
+            logger.info(f"main_sqs::sendMessagesLL() >>     Sent successfully.")
         
-    logger.info(f"main_sqs::sendMessages() >> Successfully sent {successCount} of {count} message(s).")
+    logger.info(f"main_sqs::sendMessagesLL() >> Successfully sent {successCount} of {count} message(s).")
+
+
+def getDefaultMessageBody(modifiedBy="Jyotindra", modifiedAt=None):
+    messageBody = {}
+    messageBody["modifiedBy"] = modifiedBy
+    messageBody["modifiedAt"] = modifiedAt if modifiedAt else timeHelper.getUTCDateTimeString()
+    return messageBody
+
+
+def getMessageAttributes(messageType, messageVersion="1.0", messageFormat="application/json", currentDateTime=None):
+    messageAttributes = {}
+    messageAttributes["messageVersion"] = messageVersion
+    messageAttributes["messageFormat"] = messageFormat
+    messageAttributes["messageType"] = messageType
+    messageAttributes["messageSentAt"] = currentDateTime if currentDateTime else timeHelper.getUTCDateTimeString()
+    return messageAttributes
+
+
+def receiveMessagesLL(queuename, count=10, wait=5):
+    queueName = queuename
+    successCount = receivedCount = 0
+    logger.info(f"main_sqs::receiveMessagesLL() >> Paramters >> queueName: '{queueName}', count: {count}, wait: {wait} second(s)")
+    for i in range(1, count+1):
+        result = awsSqsHelper.receiveMessages(queueName, messageProcessorFunc=receiveMessageProcessor)
+        logger.debug(f"receiveMessagesLL result: {result}")
+        if(apiMgmt.isResultSuccess(result)):
+            messages = result[awsSqsHelper.CONSTANTS.CONTEXT.MESSAGES]
+            receivedCount += len(messages)
+            logger.info(f"main_sqs::receiveMessagesLL() >>   Received {len(messages)} message(s). Processing messages...")
+            for index, message in enumerate(messages):
+                resultProcessor = receiveMessageProcessor(message, index)
+                time.sleep(wait)
+                if(resultProcessor):
+                    logger.info(f"main_sqs::receiveMessagesLL() >>     Message processed successfully.")
+                    successCount += 1
+                    awsSqsHelper.deleteMessage(message)
+                else:
+                    logger.error(f"main_sqs::receiveMessagesLL() >>     Message processing FAILED.")
+            logger.info("")
+    logger.info(f"main_sqs::receiveMessagesLL() >> Successfully processed {successCount} of {receivedCount} received message(s).")
 
 
 def receiveMessageProcessor(message, index):
@@ -98,34 +166,6 @@ def receiveMessageProcessor(message, index):
     logger.info(f"    User DefinedAttributes: {jsonHelper.convertObjectToFormattedJson(messageAttributes)}")
     
     return result
-
-
-@main.command("rm", help="Receive messages")
-@click.argument("qn", type=click.STRING) # help="SQS queue (name) to recieve message from")
-@click.option("-c", "--count", type=click.INT, default=10, help="Number of times to loop for receiving messages. Defaults to 10.")
-@click.option("-w", "--wait", type=click.INT, default=5, help="Number of seconds to wait between each message. Simulate long message processing time. Defaults to 5.")
-def receiveMessages(qn, count, wait):
-    queueName = qn
-    successCount = receivedCount = 0
-    logger.info(f"main_sqs::receiveMessages() >> Paramters >> count: {count}, wait: {wait}, queueName: '{queueName}'")
-    for i in range(1, count+1):
-        result = awsSqsHelper.receiveMessages(queueName, messageProcessorFunc=receiveMessageProcessor)
-        logger.debug(f"receiveMessages result: {result}")
-        if(apiMgmt.isResultSuccess(result)):
-            messages = result[awsSqsHelper.CONSTANTS.CONTEXT.MESSAGES]
-            receivedCount += len(messages)
-            logger.info(f"main_sqs::receiveMessages() >>   Received {len(messages)} message(s). Processing messages...")
-            for index, message in enumerate(messages):
-                resultProcessor = receiveMessageProcessor(message, index)
-                time.sleep(wait)
-                if(resultProcessor):
-                    logger.info(f"main_sqs::receiveMessages() >>     Message processed successfully.")
-                    successCount += 1
-                    awsSqsHelper.deleteMessage(message)
-                else:
-                    logger.error(f"main_sqs::receiveMessages() >>     Message processing FAILED.")
-            logger.info("")
-    logger.info(f"main_sqs::receiveMessages() >> Successfully processed {successCount} of {receivedCount} received message(s).")
 
 
 if( __name__ == "__main__"):
