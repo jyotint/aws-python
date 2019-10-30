@@ -8,6 +8,7 @@ import boto3
 # Local application imports
 from helper import jsonHelper
 from helper import apiMgmt
+from awsHelper import awsCommonHelper
 
 
 # Module Constants
@@ -22,17 +23,21 @@ class CONSTANTS:
         class RESPONSE:
             RESPONSE_META_DATA = "ResponseMetadata"
             HTTP_STATUS_CODE = "HTTPStatusCode"
-            REQUEST_ID = "RequestId"
             MESSAGE_ID = "MessageId"
             MD5_MESSAGE_BODY = "MD5OfMessageBody"
+            MD5_MESSAGE_ATTRIBUTES = "MD5OfMessageAttributes"
+            SEQUENCE_NUMBER = "SequenceNumber"
     class RESPONSE:
-        RESPONSE_STATUS_CODE = "Response.StatusCode"
-        RESPONSE_REQUEST_ID = "Response.RequestId"
-        REQUEST_MESSAGE_ID = "Request.MessageId"
-        REQUEST_MD5_MESSAGE_BODY = "Request.MD5OfMessageBody"
+        RMESSAGE_ID = "messageId"
+        PROVIDER_RESPONSE_DATA = "providerResponseData"
+        ADDITIONAL_REQUEST_DATA = "additionalRequestData"
+        ARD_MESSAGE_ID = "MessageId"
+        ARD_SEQUENCE_NUMBER = "SequenceNumber"
+        ARD_MD5_MESSAGE_BODY = "MD5OfMessageBody"
+        ARD_MD5_MESSAGE_ATTRIBUTES = "MD5OfMessageAttributes"
     class CONTEXT:
-        QUEUE = "Queue"
-        MESSAGES = "Messages"
+        QUEUE = "queue"
+        MESSAGES = "messages"
 
 
 # Module level variables and code
@@ -47,74 +52,6 @@ logger = logging.getLogger(__name__)    # Logger
 # logger.debug(f"awsSqsHelper::dir():       {dir()}")
 
 
-def getAwsObjectBooleanAttributeValue(awsObj, attr, defaultValue=False):
-    value = awsObj.attributes.get(attr, defaultValue)
-    if(type(value) == type('')):
-        if(value == 'true'):
-            value = True
-        elif(value == 'false'):
-            value = False
-    return value
-
-
-def __getMessageJsonString(data):
-    # logger.debug(f"awsSqsHelper::__getMessageJsonString() >> Message type '{type(data)}'")
-    messageString = None
-    if(type(data) == type({})):
-        messageString = jsonHelper.convertObjectToJson(data)
-    elif(type(data) == type("")):
-        messageString = data
-    else:
-        raise Exception(f"Unsupported message type pass, only 'String (containing JSON)' and 'Dictionary' type are supported (passed type: '{type(data)}')")
-
-    return messageString
-
-
-def __serializeGetAttributeValue(value):
-    valueAttr = {}
-    valueAttr["DataType"] = "String"
-    valueAttr["StringValue"] = value
-    return valueAttr
-
-def __deserializeGetAttributeValue(valueAttr):
-    return valueAttr["StringValue"]
-
-def serializeDictToAttributeList(datDict):
-    newMessageAttributes = {}
-    if(datDict):
-        for key, value in datDict.items():
-            newMessageAttributes[key] = __serializeGetAttributeValue(value)
-    return newMessageAttributes
-
-def deserializeAttributeLisToDict(messageAttributes):
-    dataDict = {}
-    if(messageAttributes):
-        for key, value in messageAttributes.items():     
-            dataDict[key] = __deserializeGetAttributeValue(value)
-    return dataDict
-
-
-def __sendMessage(queue, messageObject):
-    result = apiMgmt.getDefaultResult()
-
-    try:
-        response = queue.send_message(**messageObject)
-        # logger.debug(f"awsSqsHelper::__sendMessage() >> response: {jsonHelper.convertObjectToFormattedJson(response)}")
-
-        responseMetaData = response.get(CONSTANTS.SQS.RESPONSE.RESPONSE_META_DATA)
-        result[CONSTANTS.RESPONSE.REQUEST_MESSAGE_ID] = response.get(CONSTANTS.SQS.RESPONSE.MESSAGE_ID)
-        result[CONSTANTS.RESPONSE.REQUEST_MD5_MESSAGE_BODY] = response.get(CONSTANTS.SQS.RESPONSE.MD5_MESSAGE_BODY)
-        result[CONSTANTS.RESPONSE.RESPONSE_STATUS_CODE] = responseMetaData.get(CONSTANTS.SQS.RESPONSE.HTTP_STATUS_CODE)
-        result[CONSTANTS.RESPONSE.RESPONSE_REQUEST_ID] = responseMetaData.get(CONSTANTS.SQS.RESPONSE.REQUEST_ID)
-        apiMgmt.setResultStatusSuccess(result)
-
-    except Exception as ex:
-        apiMgmt.setResultFailed(result, exception=str(ex), stackTrace=traceback.format_exc())
-        # logger.error(f"awsSqsHelper::__sendMessage() >> Exception has occurred. Error: '{str(ex)}'")
-
-    return result
-
-
 def getQueue(queueName):
     result = apiMgmt.getDefaultResult()
 
@@ -126,7 +63,6 @@ def getQueue(queueName):
             queue = __sqs.get_queue_by_name(QueueName=queueName)
             result[CONSTANTS.CONTEXT.QUEUE] = queue
             apiMgmt.setResultStatusSuccess(result)
-
             logger.info(f"awsSqsHelper::getQueue() >> SQS Queue - Name: '{queueName}'\
 , DelaySeconds: '{queue.attributes.get('DelaySeconds')}'\
 , FifoQueue: '{queue.attributes.get('FifoQueue')}'\
@@ -149,8 +85,8 @@ def sendMessage(queueName, messageBody, messageAttributes=None, messageId=None, 
             result = resultGetQueue
         else:
             queueObj = resultGetQueue.get(CONSTANTS.CONTEXT.QUEUE)
-            isFifoQueue = getAwsObjectBooleanAttributeValue(queueObj, "FifoQueue", False)
-            isContentBasedDeduplication = getAwsObjectBooleanAttributeValue(queueObj, "ContentBasedDeduplication", False)
+            isFifoQueue = awsCommonHelper.getAwsObjectBooleanAttributeValue(queueObj, "FifoQueue", False)
+            isContentBasedDeduplication = awsCommonHelper.getAwsObjectBooleanAttributeValue(queueObj, "ContentBasedDeduplication", False)
 
             messageObject = {}
             # Message ID
@@ -171,14 +107,13 @@ def sendMessage(queueName, messageBody, messageAttributes=None, messageId=None, 
             elif(isFifoQueue == True and messageDeduplicationId == None and isContentBasedDeduplication == False):
                 messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_DEDUPLICATION_ID] = str(uuid.uuid4())
             # Message Body
-            messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_BODY] = __getMessageJsonString(messageBody)
+            messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_BODY] = awsCommonHelper.getMessageJsonString(messageBody)
             # Message Attibutes
             if(messageAttributes):
-                newNessageAttributes = serializeDictToAttributeList(messageAttributes)
+                newNessageAttributes = awsCommonHelper.serializeDictToAttributeList(messageAttributes)
                 messageObject[CONSTANTS.SQS.REQUEST.MESSAGE_ATTRIBUTE] = newNessageAttributes
             logger.info(f"awsSqsHelper::sendMessage() >> messageObject: {jsonHelper.convertObjectToFormattedJson(messageObject)}")
 
-            # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html#SQS.Queue.send_message
             result = __sendMessage(queueObj, messageObject)
 
     except Exception as ex:
@@ -241,3 +176,38 @@ def deleteMessage(message):
         apiMgmt.setResultFailed(result, exception=str(ex), stackTrace=traceback.format_exc())
 
     return result
+
+
+def __sendMessage(queue, messageObject):
+    result = apiMgmt.getDefaultResult()
+
+    try:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html#SQS.Queue.send_message
+        response = queue.send_message(**messageObject)
+        logger.info(f"awsSqsHelper::__sendMessage() >> response: {jsonHelper.convertObjectToFormattedJson(response)}")
+
+        responseMetaData = response.get(CONSTANTS.SQS.RESPONSE.RESPONSE_META_DATA)
+        result[CONSTANTS.RESPONSE.PROVIDER_RESPONSE_DATA] = responseMetaData
+
+        responeHttpStatusCode = responseMetaData.get(CONSTANTS.SQS.RESPONSE.HTTP_STATUS_CODE)
+        if(awsCommonHelper.isResponseHttpStatusCodeSuccess(responeHttpStatusCode)):
+            apiMgmt.setResultStatusSuccess(result)
+            result[CONSTANTS.RESPONSE.ADDITIONAL_REQUEST_DATA] = __composeSendMessageAdditionalResponseData(response)
+
+    except Exception as ex:
+        apiMgmt.setResultFailed(result, exception=str(ex), stackTrace=traceback.format_exc())
+        # logger.error(f"awsSqsHelper::__sendMessage() >> Exception has occurred. Error: '{str(ex)}'")
+
+    return result
+
+
+def __composeSendMessageAdditionalResponseData(response):
+    additionalRequestData = {}
+    additionalRequestData[CONSTANTS.RESPONSE.ARD_MESSAGE_ID] = response.get(CONSTANTS.SQS.RESPONSE.MESSAGE_ID)
+    sequenceNumber = response.get(CONSTANTS.SQS.RESPONSE.SEQUENCE_NUMBER)
+    if(sequenceNumber):
+        additionalRequestData[CONSTANTS.RESPONSE.ARD_SEQUENCE_NUMBER] = sequenceNumber
+    additionalRequestData[CONSTANTS.RESPONSE.ARD_MD5_MESSAGE_BODY] = response.get(CONSTANTS.SQS.RESPONSE.MD5_MESSAGE_BODY)
+    additionalRequestData[CONSTANTS.RESPONSE.ARD_MD5_MESSAGE_ATTRIBUTES] = response.get(CONSTANTS.SQS.RESPONSE.MD5_MESSAGE_ATTRIBUTES)
+    
+    return additionalRequestData
