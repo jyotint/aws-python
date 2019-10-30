@@ -15,6 +15,7 @@ from helper import timeHelper
 from helper import jsonHelper
 from helper import apiMgmt
 from helper import configureLogging
+from awsHelper import awsCommonHelper
 from awsHelper import awsSqsHelper
 # Module Constants
 
@@ -76,7 +77,7 @@ def sendMessagesLL(queueName, count=1, interval=2, useSameGroupId=False, useSame
     successCount = 0
     messageGroupId = None
     messageDeduplicationId = None
-    logger.info(f"main_sqs::sendMessagesLL() >> Paramters >> queueName: '{queueName}', count: {count}, interval: {interval} second(s), useSameGroupId: {useSameGroupId}, useSameDeduplicationId: {useSameDeduplicationId}")
+    logger.info(f"main_sqs::sendMessagesLL() >> Parameters >> queueName: '{queueName}', count: {count}, interval: {interval} second(s), useSameGroupId: {useSameGroupId}, useSameDeduplicationId: {useSameDeduplicationId}")
 
     if(useSameGroupId):
         messageGroupId = str(uuid.uuid4())
@@ -93,7 +94,7 @@ def sendMessagesLL(queueName, count=1, interval=2, useSameGroupId=False, useSame
         messageBody = getDefaultMessageBody(modifiedAt=currentDateTime)
         messageAttributes = getMessageAttributes("HelloWorldType", currentDateTime=currentDateTime)
 
-        messageBody["body"] = "Hello World!"
+        messageBody["body"] = f"Hello World sent at {currentDateTime}."
 
         result = awsSqsHelper.sendMessage(
             queueName, 
@@ -102,10 +103,9 @@ def sendMessagesLL(queueName, count=1, interval=2, useSameGroupId=False, useSame
             messageGroupId=messageGroupId, 
             messageDeduplicationId=messageDeduplicationId)
 
-        # logger.debug(f"main_sqs::sendMessagesLL() >> result: {result}")
-        logger.debug(f"main_sqs::sendMessagesLL() >> result: {jsonHelper.convertObjectToFormattedJson(result)}")
+        logger.info(f"main_sqs::sendMessagesLL() >> result: {jsonHelper.convertObjectToFormattedJson(result)}")
         if(apiMgmt.isResultFailure(result)):
-            logger.error(result.get(apiMgmt.CONSTANTS.RESULT.STACK_TRACE))
+            logger.error(apiMgmt.getResultErrorStackTrace(result))
         else:
             successCount += 1
             logger.info(f"main_sqs::sendMessagesLL() >>     Sent successfully.")
@@ -132,7 +132,7 @@ def getMessageAttributes(messageType, messageVersion="1.0", messageFormat="appli
 def receiveMessagesLL(queuename, count=10, wait=5):
     queueName = queuename
     successCount = receivedCount = 0
-    logger.info(f"main_sqs::receiveMessagesLL() >> Paramters >> queueName: '{queueName}', count: {count}, wait: {wait} second(s)")
+    logger.info(f"main_sqs::receiveMessagesLL() >> Parameters >> queueName: '{queueName}', count: {count}, wait: {wait} second(s)")
     for i in range(1, count+1):
         result = awsSqsHelper.receiveMessages(queueName, messageProcessorFunc=receiveMessageProcessor)
         logger.debug(f"receiveMessagesLL result: {result}")
@@ -158,7 +158,7 @@ def receiveMessageProcessor(message, index):
     logger.info(f"main_sqs::receiveMessageProcessor() >> Processing message #{index+1}...")
 
     messageBody = jsonHelper.convertJsonToObject(message.body)
-    messageAttributes = awsSqsHelper.deserializeAttributeLisToDict(message.message_attributes)
+    messageAttributes = awsCommonHelper.deserializeAttributeLisToDict(message.message_attributes)
 
     logger.info(f"    Message Id:             {message.message_id}")
     logger.info(f"    Message Attributes:     {jsonHelper.convertObjectToFormattedJson(message.attributes)}")
