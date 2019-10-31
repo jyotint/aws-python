@@ -41,7 +41,7 @@ class CONSTANTS:
 
 
 # Module level variables and code
-__sqs = boto3.resource("sqs")           # AWS SQS Resource
+__sqsResource = boto3.resource("sqs")           # AWS SQS Resource
 logger = logging.getLogger(__name__)    # Logger
 
 
@@ -60,7 +60,7 @@ def getQueue(queueName):
             apiMgmt.setResultFailed(result, exception="Invalid queue Name passed!")
         else:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html#SQS.ServiceResource.get_queue_by_name
-            queue = __sqs.get_queue_by_name(QueueName=queueName)
+            queue = __sqsResource.get_queue_by_name(QueueName=queueName)
             result[CONSTANTS.CONTEXT.QUEUE] = queue
             apiMgmt.setResultStatusSuccess(result)
             logger.info(f"awsSqsHelper::getQueue() >> SQS Queue - Name: '{queueName}'\
