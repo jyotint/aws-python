@@ -5,11 +5,11 @@ sys.path.append("..")
 import time
 import uuid
 # import pprint
-import click
 import traceback
 import logging
-import coloredlogs
 # Third party library imports
+import click
+import coloredlogs
 # Local application importsimport os
 from helper import timeHelper
 from helper import jsonHelper
@@ -50,6 +50,8 @@ def publishMessages(topicname, count, interval):
 @click.option("-c", "--count", type=click.INT, default=1, help="Number of mesages to send. Defaults to 1.")
 @click.option("-i", "--interval", type=click.INT, default=2, help="Duration between messages in Seconds. Defaults to 2.")
 def subscribeToTopic(topicname, count, interval):
+    # logger.info(f"main_sns::subscribeToTopic() >> Parameters >> topicName: '{topicName}', count: {count}, interval: {interval} second(s)")
+    logger.info(f"main_sns::subscribeToTopic() >> NOT IMPLEMENTED.")
     pass
 
 

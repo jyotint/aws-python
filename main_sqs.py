@@ -5,11 +5,11 @@ sys.path.append("..")
 import time
 import uuid
 # import pprint
-import click
 import traceback
 import logging
-import coloredlogs
 # Third party library imports
+import click
+import coloredlogs
 # Local application importsimport os
 from helper import timeHelper
 from helper import jsonHelper

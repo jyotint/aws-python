@@ -1,7 +1,12 @@
+# Standard library imports
 import os
+# Third party library imports
 import yaml
+# Local application importsimport os
 import logging
 import logging.config
+# Module Constants
+
 
 logConfigurationEnvKey = "AWS_PYTHON_LOG_CFG"
 
