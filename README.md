@@ -6,7 +6,7 @@ Interact with AWS Services. Application is written using Python v3 and boto3 AWS
 * Python v3.7.4
 
 ### Install AWS CLI
-Follow the instruction at below mentioned link if AWS CLI is not installed
+Follow the instruction at below mentioned link if [AWS CLI](https://docs.aws.amazon.com/en_pv/cli/latest/userguide/cli-chap-install.html) is not installed
 
 ### Configure AWS account using following steps
 * Create Security Access Key for user with appropriate permissions
